@@ -19,8 +19,8 @@ int speed = NORM_SPEED;
 
 TaskHandle_t banBongTask;
 
-bool needSpool = false;
 bool hasSpooled = false;
+bool isFiring = false;
 SemaphoreHandle_t mutex;
 
 void waitBanBong(void * parameter);
@@ -50,19 +50,13 @@ bool PS2control()
                     &banBongTask,      /* Task handle to keep track of created task */
                     1);          /* pin task to core 1 */
     xSemaphoreTake(mutex, 1);
-    needSpool = true;
-    xSemaphoreGive(mutex);
     if (ps2x.Button(PSB_L1)) {
-      xSemaphoreTake(mutex, 1);
-      bool prv_hasSpooled = hasSpooled;
-      xSemaphoreGive(mutex);
-      if (prv_hasSpooled) {
-        pwm.setPWM(SERVO_BAN_BONG, 0, 400);
-        delay(500);
-        pwm.setPWM(SERVO_BAN_BONG, 0, 210);
-      }
+      bool isFiring = true;
+    } else {
+      bool isFiring = false;
     }
-  }
+    xSemaphoreGive(mutex);
+  } else {vTaskDelete(banBongTask)};
   if(ps2x.ButtonPressed(PSB_GREEN)){
     turnServo90(SERVO_GOC_BAN);
   } else if (ps2x.ButtonPressed(PSB_RED)) {
@@ -139,19 +133,20 @@ bool PS2control()
 
 void waitBanBong(void * parameter) {
   xSemaphoreTake(mutex, 1);
-  bool prv_needSpool = needSpool;
-  bool prv_hasSpooled = hasSpooled;
+  bool prv_isFiring = isFiring;
   xSemaphoreGive(mutex);
-  if (prv_needSpool) {
-    if (!prv_hasSpooled) {
-      // bat motor chay da
-      delay(500);
-      xSemaphoreTake(mutex, 1);
-      hasSpooled = true;
-      xSemaphoreGive(mutex);
-    }
+  if (!hasSpooled) {
+    // bat motor chay da
+    delay(500);
+    xSemaphoreTake(mutex, 1);
+    hasSpooled = true;
+    xSemaphoreGive(mutex);
   } else {
-    //tat motor chay da
-    vTaskDelete(banBongTask);//tu huy task
+    if (prv_isFiring) {
+      pwm.setPWM(SERVO_BAN_BONG, 0, 284);
+      delay(500);
+      pwm.setPWM(SERVO_BAN_BONG, 0, 205);
+      delay(500);
+    }
   }
 }
