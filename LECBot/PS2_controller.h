@@ -21,8 +21,10 @@ int speed;
 boolean banBongMode = false;
 boolean thuBongMode = true;
 
+// Task handle
 TaskHandle_t banBongTask;
 
+// Shared variable between threads with mutex lock to avoid racing condition
 bool hasSpooled = false;
 bool isFiring = false;
 SemaphoreHandle_t mutex;
@@ -44,13 +46,14 @@ void setupPS2controller()
 bool PS2control()
 {
   if (ps2x.NewButtonState()) {
+    // Thu bong mode
     if (PSB_PAD_DOWN) {
       banBongMode = false;
       thuBongMode = true;
-    } else if (PSB_PINK) {
+    } else if (PSB_PINK) { // Ban bong mode
       banBongMode = true;
       thuBongMode = false;
-    } else if (PSB_R1) {
+    } else if (PSB_R1) { // Do bong mode
       banBongMode = false;
       thuBongMode = false;
     }
@@ -59,7 +62,9 @@ bool PS2control()
   if (banBongMode) {
     speed = NORM_SPEED;
     //TODO: test neu bam l2 2 lan thi co crash ko
+    // Running the shooter's wheels
     if (ps2x.Button(PSB_L2)) {
+      // Create dedicated thread for firing
       xTaskCreatePinnedToCore(
                       waitBanBong,   /* Task function. */
                       "waitBanBong",     /* name of task. */
@@ -83,6 +88,7 @@ bool PS2control()
       turnServoM90(SERVO_GOC_BAN);
     }
   } else if (thuBongMode) {
+    // The first two if is for manual mode
     if (ps2x.ButtonPressed(PSB_PAD_RIGHT)) {
       // Black ball
       // Position servo1 at -90 degrees
@@ -91,7 +97,7 @@ bool PS2control()
       // White ball
       // Position servo1 at 90 degrees
       turnServo90(SERVO_LOC_BONG);
-    } else if (ps2x.ButtonPressed(PSB_PAD_UP)){
+    } else if (ps2x.ButtonPressed(PSB_PAD_UP)){ // Auto mode
       int irvalue = digitalRead(SENSOR);
       if (irvalue == 0) {
         // Black ball
@@ -159,6 +165,7 @@ bool PS2control()
   return 1;
 }
 
+// The function to run on the shooting thread
 void waitBanBong(void * parameter) {
   xSemaphoreTake(mutex, 1);
   bool prv_isFiring = isFiring;
