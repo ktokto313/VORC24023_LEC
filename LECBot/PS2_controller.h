@@ -7,15 +7,19 @@ PS2X ps2x; // create PS2 Controller Class object
 #define PS2_SEL 15 // SS     5
 #define PS2_CLK 14 // SLK   18
 
-#define SERVO_GOC_BAN 3
-#define SERVO_BAN_BONG 4
-#define SERVO_LOC_BONG 5
+#define SENSOR 3
+#define SERVO_GOC_BAN 4
+#define SERVO_BAN_BONG 5
+#define SERVO_LOC_BONG 6
+#define SERVO_DO_BONG 7
 
 #define TOP_SPEED 4090
 #define NORM_SPEED 2048
 #define TURNING_FACTOR 0.7
 
-int speed = NORM_SPEED;
+int speed;
+boolean banBongMode = false;
+boolean thuBongMode = true;
 
 TaskHandle_t banBongTask;
 
@@ -39,47 +43,67 @@ void setupPS2controller()
 
 bool PS2control()
 {
-  //TODO: test neu bam l2 2 lan thi co crash ko
-  if (ps2x.Button(PSB_L2)) {
-    xTaskCreatePinnedToCore(
-                    waitBanBong,   /* Task function. */
-                    "waitBanBong",     /* name of task. */
-                    8192,       /* Stack size of task */
-                    NULL,        /* parameter of the task */
-                    1,           /* priority of the task */
-                    &banBongTask,      /* Task handle to keep track of created task */
-                    1);          /* pin task to core 1 */
-    xSemaphoreTake(mutex, 1);
-    if (ps2x.Button(PSB_L1)) {
-      bool isFiring = true;
-    } else {
-      bool isFiring = false;
+  if (ps2x.NewButtonState()) {
+    if (PSB_PAD_DOWN) {
+      banBongMode = false;
+      thuBongMode = true;
+    } else if (PSB_PINK) {
+      banBongMode = true;
+      thuBongMode = false;
+    } else if (PSB_R1) {
+      banBongMode = false;
+      thuBongMode = false;
     }
-    xSemaphoreGive(mutex);
-  } else {vTaskDelete(banBongTask)};
-  if(ps2x.ButtonPressed(PSB_GREEN)){
-    turnServo90(SERVO_GOC_BAN);
-  } else if (ps2x.ButtonPressed(PSB_RED)) {
-    turnServoM90(SERVO_GOC_BAN);
   }
-  if (ps2x.ButtonPressed(PSB_PAD_RIGHT)) {
-    // Black ball
-    // Position servo1 at -90 degrees
-    turnServoM90(SERVO_LOC_BONG);
-  } else if (ps2x.ButtonPressed(PSB_PAD_LEFT)) {
-    // White ball
-    // Position servo1 at 90 degrees
-    turnServo90(SERVO_LOC_BONG);
-  } else if (ps2x.ButtonPressed(PSB_PAD_UP)){
-    int irvalue = digitalRead(irvalue);
-    if (irvalue == 0) {
+  speed = TOP_SPEED;
+  if (banBongMode) {
+    speed = NORM_SPEED;
+    //TODO: test neu bam l2 2 lan thi co crash ko
+    if (ps2x.Button(PSB_L2)) {
+      xTaskCreatePinnedToCore(
+                      waitBanBong,   /* Task function. */
+                      "waitBanBong",     /* name of task. */
+                      8192,       /* Stack size of task */
+                      NULL,        /* parameter of the task */
+                      1,           /* priority of the task */
+                      &banBongTask,      /* Task handle to keep track of created task */
+                      1);          /* pin task to core 1 */
+      xSemaphoreTake(mutex, 1);
+      if (ps2x.Button(PSB_L1)) {
+        bool isFiring = true;
+      } else {
+        bool isFiring = false;
+      }
+      xSemaphoreGive(mutex);
+    } else {vTaskDelete(banBongTask);}
+
+    if(ps2x.ButtonPressed(PSB_GREEN)){
+      turnServo90(SERVO_GOC_BAN);
+    } else if (ps2x.ButtonPressed(PSB_RED)) {
+      turnServoM90(SERVO_GOC_BAN);
+    }
+  } else if (thuBongMode) {
+    if (ps2x.ButtonPressed(PSB_PAD_RIGHT)) {
       // Black ball
       // Position servo1 at -90 degrees
       turnServoM90(SERVO_LOC_BONG);
-    } else if (irvalue== 1){ 
+    } else if (ps2x.ButtonPressed(PSB_PAD_LEFT)) {
       // White ball
       // Position servo1 at 90 degrees
       turnServo90(SERVO_LOC_BONG);
+    } else if (ps2x.ButtonPressed(PSB_PAD_UP)){
+      int irvalue = digitalRead(SENSOR);
+      if (irvalue == 0) {
+        // Black ball
+        // Position servo1 at -90 degrees
+        turnServoM90(SERVO_LOC_BONG);
+      } else if (irvalue== 1){ 
+        // White ball
+        // Position servo1 at 90 degrees
+        turnServo90(SERVO_LOC_BONG);
+      }
+    }
+  } else {
     if (ps2x.Button(PSB_R2)) {
       turnServo90(SERVO_DO_BONG);
       delay(500);
