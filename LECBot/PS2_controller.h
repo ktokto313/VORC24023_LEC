@@ -80,6 +80,10 @@ bool PS2control()
       // White ball
       // Position servo1 at 90 degrees
       turnServo90(SERVO_LOC_BONG);
+    if (ps2x.Button(PSB_R2)) {
+      turnServo90(SERVO_DO_BONG);
+      delay(500);
+      turnServo0(SERVO_DO_BONG);
     }
   }
 
