@@ -44,3 +44,7 @@ void turnServo90(int servo) {
 void turnServoM90(int servo) {
   pwm.setPWM(servo, 0, 205);
 }
+
+void turnServo0(int servo) {
+  pwm.setPWM(servo, 0, 307);
+}
